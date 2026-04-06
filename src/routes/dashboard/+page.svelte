@@ -1,17 +1,15 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { env } from '$env/dynamic/public';
+	import {
+		authRequest,
+		authStore,
+		clearSession,
+		getAuthSnapshot,
+		initializeAuthState
+	} from '$lib/auth/auth-client';
+	import TopNavigation from '$lib/components/top-navigation.svelte';
 	import { onMount } from 'svelte';
-
-	interface AuthUser {
-		id: string;
-		provider: string;
-		subject: string;
-		email: string | null;
-		name: string | null;
-	}
 
 	interface ApiKeyItem {
 		id: string;
@@ -23,33 +21,26 @@
 		revokedAt: string | null;
 	}
 
-	const ACCESS_TOKEN_KEY = 'gatekeeper:access-token';
-	const USER_KEY = 'gatekeeper:user';
-	const OAUTH_STATE_KEY = 'gatekeeper:oauth-state';
-	const OAUTH_VERIFIER_KEY = 'gatekeeper:oauth-code-verifier';
-	const API_BASE = (env.PUBLIC_GATEKEEPER_API_BASE_URL || 'http://localhost:3000').replace(
-		/\/$/,
-		''
-	);
-
 	let loadingKeys = $state(false);
 	let errorMessage = $state('');
 	let noticeMessage = $state('');
 
-	let accessToken = $state('');
-	let user = $state<AuthUser | null>(null);
 	let namespaces = $state<string[]>([]);
 	let selectedNamespace = $state('');
 	let apiKeys = $state<ApiKeyItem[]>([]);
 	let newLabel = $state('');
 	let issuedPlainKey = $state('');
 
-	const isAuthenticated = $derived(accessToken.length > 0 && user !== null);
+	const user = $derived($authStore.user);
+	const isAuthenticated = $derived(
+		Boolean($authStore.gatewayAccessToken) && $authStore.user !== null
+	);
 
 	onMount(async () => {
-		restoreSessionFromStorage();
+		initializeAuthState();
+		const snapshot = getAuthSnapshot();
 
-		if (!isAuthenticated) {
+		if (!snapshot.gatewayAccessToken || !snapshot.user) {
 			await goto(resolve('/'));
 			return;
 		}
@@ -61,48 +52,18 @@
 		}
 	});
 
-	function restoreSessionFromStorage(): void {
-		if (!browser) {
-			return;
-		}
-
-		const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-		if (storedToken) {
-			accessToken = storedToken;
-		}
-
-		const storedUser = localStorage.getItem(USER_KEY);
-		if (storedUser) {
-			try {
-				user = JSON.parse(storedUser) as AuthUser;
-			} catch {
-				user = null;
-			}
-		}
-	}
-
-	function signOut(): void {
-		accessToken = '';
-		user = null;
+	async function handleSignOut(): Promise<void> {
+		clearSession();
 		apiKeys = [];
 		issuedPlainKey = '';
 		noticeMessage = '로그아웃되었습니다.';
 		errorMessage = '';
-
-		if (!browser) {
-			return;
-		}
-
-		localStorage.removeItem(ACCESS_TOKEN_KEY);
-		localStorage.removeItem(USER_KEY);
-		sessionStorage.removeItem(OAUTH_STATE_KEY);
-		sessionStorage.removeItem(OAUTH_VERIFIER_KEY);
-		void goto(resolve('/'));
+		await goto(resolve('/'));
 	}
 
 	async function loadNamespaces(): Promise<void> {
 		try {
-			const result = await apiRequest<{ namespaces: string[] }>('/auth/namespaces');
+			const result = await authRequest<{ namespaces: string[] }>('/auth/namespaces');
 			namespaces = result.namespaces;
 
 			if (!selectedNamespace && namespaces.length > 0) {
@@ -122,11 +83,7 @@
 		errorMessage = '';
 
 		try {
-			apiKeys = await apiRequest<ApiKeyItem[]>(`/auth/api-keys/${encodeURIComponent(namespace)}`, {
-				headers: {
-					authorization: `Bearer ${accessToken}`
-				}
-			});
+			apiKeys = await authRequest<ApiKeyItem[]>(`/auth/api-keys/${encodeURIComponent(namespace)}`);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to load API keys.';
 		} finally {
@@ -144,7 +101,7 @@
 		noticeMessage = '';
 
 		try {
-			const created = await apiRequest<{
+			const created = await authRequest<{
 				id: string;
 				namespace: string;
 				apiKey: string;
@@ -154,7 +111,6 @@
 			}>(`/auth/api-keys/${encodeURIComponent(selectedNamespace)}`, {
 				method: 'POST',
 				headers: {
-					authorization: `Bearer ${accessToken}`,
 					'content-type': 'application/json'
 				},
 				body: JSON.stringify({
@@ -182,13 +138,10 @@
 		errorMessage = '';
 
 		try {
-			await apiRequest<{ revoked: boolean }>(
+			await authRequest<{ revoked: boolean }>(
 				`/auth/api-keys/${encodeURIComponent(selectedNamespace)}/${encodeURIComponent(id)}`,
 				{
-					method: 'DELETE',
-					headers: {
-						authorization: `Bearer ${accessToken}`
-					}
+					method: 'DELETE'
 				}
 			);
 
@@ -201,22 +154,6 @@
 		}
 	}
 
-	async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-		const response = await fetch(`${API_BASE}${path}`, {
-			...init
-		});
-
-		if (!response.ok) {
-			const payload = (await response.json().catch(() => ({}))) as {
-				message?: string;
-				detail?: string;
-			};
-			throw new Error(payload.message || payload.detail || `Request failed: ${response.status}`);
-		}
-
-		return (await response.json()) as T;
-	}
-
 	function formatDate(value: string | null): string {
 		if (!value) {
 			return '-';
@@ -227,8 +164,10 @@
 	}
 </script>
 
-<main class="min-h-screen bg-slate-50 px-4 py-10 text-slate-900">
-	<div class="mx-auto flex w-full max-w-6xl flex-col gap-6">
+<main class="min-h-screen bg-slate-50 text-slate-900">
+	<TopNavigation {user} onSignOut={handleSignOut} />
+
+	<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
 		<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 			<p class="text-sm font-semibold tracking-[0.2em] text-slate-600 uppercase">
 				Gatekeeper Dashboard
@@ -241,13 +180,11 @@
 				<span class="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700"
 					>User: {user?.name ?? user?.email ?? user?.subject ?? '-'}</span
 				>
-				<button
-					type="button"
-					class="rounded-full border border-slate-300 bg-white px-3 py-1 font-medium text-slate-700 transition hover:bg-slate-100"
-					onclick={signOut}
-				>
-					로그아웃
-				</button>
+				{#if $authStore.status === 'refreshing'}
+					<span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800"
+						>세션 리프레시 중...</span
+					>
+				{/if}
 			</div>
 		</section>
 
@@ -264,7 +201,7 @@
 
 		<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 			<div class="flex flex-wrap items-end gap-3">
-				<div class="flex min-w-[220px] flex-1 flex-col gap-2">
+				<div class="flex min-w-55 flex-1 flex-col gap-2">
 					<label class="text-sm font-medium text-slate-700" for="namespace">Namespace</label>
 					<select
 						id="namespace"
