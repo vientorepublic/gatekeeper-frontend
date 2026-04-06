@@ -4,11 +4,29 @@
 
 :root {
 	--font-ui: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+	--surface-bg: #f7fafc;
+	--focus-ring: #0f172a;
 }
 
 @layer base {
 	html,
 	body {
 		font-family: var(--font-ui);
+		background-color: var(--surface-bg);
+		color: #0f172a;
+	}
+
+	body {
+		background-image:
+			radial-gradient(circle at 100% 0%, rgba(148, 163, 184, 0.15), transparent 25%),
+			radial-gradient(circle at 0% 100%, rgba(148, 163, 184, 0.12), transparent 22%);
+	}
+
+	button:focus-visible,
+	a:focus-visible,
+	input:focus-visible,
+	select:focus-visible {
+		outline: 2px solid var(--focus-ring);
+		outline-offset: 2px;
 	}
 }

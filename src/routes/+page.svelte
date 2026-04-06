@@ -12,9 +12,14 @@
 	import { onMount } from 'svelte';
 
 	const callbackError = $derived($authStore.errorMessage);
+	const status = $derived($authStore.status);
+
+	let isBootstrapping = $state(true);
+	let loginInProgress = $state(false);
 
 	onMount(async () => {
 		initializeAuthState();
+		loginInProgress = true;
 
 		const callbackHandled = await handleOAuthCallbackIfPresent();
 		const snapshot = getAuthSnapshot();
@@ -27,11 +32,16 @@
 		if (!callbackHandled && snapshot.status !== 'error') {
 			await startOAuthLogin();
 		}
+
+		isBootstrapping = false;
+		loginInProgress = false;
 	});
 
 	async function retryOAuthLogin(): Promise<void> {
 		clearAuthError();
+		loginInProgress = true;
 		await startOAuthLogin();
+		loginInProgress = false;
 	}
 </script>
 
@@ -61,6 +71,33 @@
 					루트로 이동
 				</a>
 			</div>
+		</section>
+	</main>
+{:else}
+	<main class="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-900">
+		<section class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+			<p class="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">Gatekeeper</p>
+			<h1 class="mt-3 text-2xl leading-tight font-bold sm:text-3xl">인증 페이지로 이동 중입니다</h1>
+			<p class="mt-3 text-sm leading-relaxed text-slate-700">
+				브라우저가 자동으로 로그인 페이지로 이동합니다. 이동이 되지 않으면 아래 버튼을 눌러 다시
+				시도해 주세요.
+			</p>
+			<div class="mt-5 flex items-center gap-2 text-sm text-slate-600">
+				<span class="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-slate-900"></span>
+				{#if isBootstrapping || loginInProgress || status === 'refreshing'}
+					<span>OAuth2 플로우 초기화 중...</span>
+				{:else}
+					<span>리다이렉트 대기 중...</span>
+				{/if}
+			</div>
+			<button
+				type="button"
+				class="mt-6 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+				onclick={retryOAuthLogin}
+				disabled={loginInProgress}
+			>
+				{loginInProgress ? '로그인 페이지 여는 중...' : '로그인 다시 시도'}
+			</button>
 		</section>
 	</main>
 {/if}
