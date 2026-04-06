@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+:root {
+	--font-ui: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+}
+
+@layer base {
+	html,
+	body {
+		font-family: var(--font-ui);
+	}
+}
