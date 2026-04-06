@@ -17,9 +17,6 @@ SvelteKit + Tailwind CSS 기반 Gatekeeper 인증/키 관리 콘솔입니다.
 - `PUBLIC_FLOWAUTH_CLIENT_ID`: FlowAuth 클라이언트 ID
 - `PUBLIC_FLOWAUTH_REDIRECT_URI`: FlowAuth 콜백 URI (프론트 URL)
 - `PUBLIC_FLOWAUTH_SCOPES`: 콤마 구분 스코프
-- `PUBLIC_FLOWAUTH_CLIENT_SECRET_MOCK`: 프론트 브라우저 플로우용 모킹 시크릿
-
-주의: 프론트엔드에는 실제 OAuth2 client secret을 넣지 않습니다.
 
 ## 실행
 
