@@ -17,6 +17,10 @@
 	let isBootstrapping = $state(true);
 	let loginInProgress = $state(false);
 
+	const pageTitle = $derived(
+		callbackError ? 'OAuth2 콜백 오류 | Gatekeeper' : '로그인 | Gatekeeper'
+	);
+
 	onMount(async () => {
 		initializeAuthState();
 		loginInProgress = true;
@@ -44,6 +48,10 @@
 		loginInProgress = false;
 	}
 </script>
+
+<svelte:head>
+	<title>{pageTitle}</title>
+</svelte:head>
 
 {#if callbackError}
 	<main class="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-900">

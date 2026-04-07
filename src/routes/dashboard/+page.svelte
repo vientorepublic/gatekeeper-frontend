@@ -270,6 +270,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>대시보드 | GateKeeper</title>
+</svelte:head>
+
 <main class="min-h-screen bg-slate-50 text-slate-900">
 	<TopNavigation {user} onSignOut={handleSignOut} />
 
