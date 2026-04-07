@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fade, fly, scale } from 'svelte/transition';
+
 	let { issuedPlainKey, copyingIssuedKey, keyCopied, onCopy } = $props<{
 		issuedPlainKey: string;
 		copyingIssuedKey: boolean;
@@ -19,6 +21,8 @@
 			{#if copyingIssuedKey}
 				<span
 					class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
+					in:scale={{ duration: 120, start: 0.8 }}
+					out:fade={{ duration: 90 }}
 				></span>
 			{/if}
 			{copyingIssuedKey ? '복사 중...' : '평문 키 복사'}
@@ -28,6 +32,12 @@
 	<p class="mt-2 font-mono text-xs break-all sm:text-sm">{issuedPlainKey}</p>
 
 	{#if keyCopied}
-		<p class="mt-3 text-xs text-emerald-700">복사 완료</p>
+		<p
+			class="mt-3 text-xs text-emerald-700"
+			in:fly={{ y: -4, duration: 170 }}
+			out:fade={{ duration: 120 }}
+		>
+			복사 완료
+		</p>
 	{/if}
 </div>

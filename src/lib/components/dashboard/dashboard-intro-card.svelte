@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fade, fly } from 'svelte/transition';
+
 	import type { AuthUser, AuthState } from '$lib/auth/auth-client';
 
 	let { user, status } = $props<{
@@ -20,8 +22,10 @@
 			>User: {user?.name ?? user?.email ?? user?.subject ?? '-'}</span
 		>
 		{#if status === 'refreshing'}
-			<span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800"
-				>세션 리프레시 중...</span
+			<span
+				class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800"
+				in:fly={{ y: -4, duration: 170 }}
+				out:fade={{ duration: 120 }}>세션 리프레시 중...</span
 			>
 		{/if}
 	</div>

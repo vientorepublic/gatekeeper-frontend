@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fade, fly, scale } from 'svelte/transition';
 	import type { ApiKeyItem } from '$lib/api/auth-api';
 	import { formatDateTime } from '$lib/utils/date';
 
@@ -15,9 +16,12 @@
 	{#if loadingKeys && apiKeys.length > 0}
 		<div
 			class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[1px]"
+			in:fade={{ duration: 140 }}
+			out:fade={{ duration: 120 }}
 		>
 			<div
 				class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700 shadow"
+				in:scale={{ duration: 140, start: 0.92 }}
 			>
 				<span
 					class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
@@ -36,16 +40,23 @@
 		</div>
 	{:else}
 		{#each apiKeys as key (key.id)}
-			<article class="rounded-2xl border border-slate-200 bg-white p-4">
+			<article
+				class="rounded-2xl border border-slate-200 bg-white p-4"
+				in:fly={{ y: 6, duration: 170 }}
+			>
 				<div class="flex items-center justify-between">
 					<p class="font-mono text-xs text-slate-700">{key.prefix}</p>
 					{#if key.revokedAt}
-						<span class="rounded-full bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-							>Revoked</span
+						<span
+							class="rounded-full bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
+							in:fade={{ duration: 120 }}
+							out:fade={{ duration: 100 }}>Revoked</span
 						>
 					{:else}
-						<span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
-							>Active</span
+						<span
+							class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
+							in:fade={{ duration: 120 }}
+							out:fade={{ duration: 100 }}>Active</span
 						>
 					{/if}
 				</div>
@@ -72,6 +83,8 @@
 					{#if revokingKeyId === key.id}
 						<span
 							class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-rose-300 border-t-rose-700"
+							in:scale={{ duration: 120, start: 0.8 }}
+							out:fade={{ duration: 90 }}
 						></span>
 					{/if}
 					{revokingKeyId === key.id ? '폐기 중...' : '폐기'}
@@ -85,9 +98,12 @@
 	{#if loadingKeys && apiKeys.length > 0}
 		<div
 			class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-[1px]"
+			in:fade={{ duration: 140 }}
+			out:fade={{ duration: 120 }}
 		>
 			<div
 				class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700 shadow"
+				in:scale={{ duration: 140, start: 0.92 }}
 			>
 				<span
 					class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
@@ -128,12 +144,16 @@
 						<td class="px-4 py-3">{formatDateTime(key.lastUsedAt)}</td>
 						<td class="px-4 py-3">
 							{#if key.revokedAt}
-								<span class="rounded-full bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-									>Revoked</span
+								<span
+									class="rounded-full bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
+									in:fade={{ duration: 120 }}
+									out:fade={{ duration: 100 }}>Revoked</span
 								>
 							{:else}
-								<span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
-									>Active</span
+								<span
+									class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
+									in:fade={{ duration: 120 }}
+									out:fade={{ duration: 100 }}>Active</span
 								>
 							{/if}
 						</td>
@@ -147,6 +167,8 @@
 								{#if revokingKeyId === key.id}
 									<span
 										class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-rose-300 border-t-rose-700"
+										in:scale={{ duration: 120, start: 0.8 }}
+										out:fade={{ duration: 90 }}
 									></span>
 								{/if}
 								{revokingKeyId === key.id ? '폐기 중...' : '폐기'}

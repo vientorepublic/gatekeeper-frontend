@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fade, scale } from 'svelte/transition';
+
 	let {
 		namespaces,
 		selectedNamespace,
@@ -58,6 +60,8 @@
 		{#if loadingKeys}
 			<span
 				class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-400 border-t-slate-700"
+				in:scale={{ duration: 120, start: 0.82 }}
+				out:fade={{ duration: 90 }}
 			></span>
 		{/if}
 		{loadingKeys ? '불러오는 중...' : '목록 새로고침'}
@@ -84,6 +88,8 @@
 		{#if issuingKey}
 			<span
 				class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-white"
+				in:scale={{ duration: 120, start: 0.82 }}
+				out:fade={{ duration: 90 }}
 			></span>
 		{/if}
 		{issuingKey ? '발급 중...' : 'API 키 발급'}

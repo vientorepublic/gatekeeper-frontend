@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fade, scale } from 'svelte/transition';
+
 	import BaseModal from '$lib/components/common/base-modal.svelte';
 
 	let {
@@ -50,6 +52,8 @@
 			{#if confirming}
 				<span
 					class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-rose-200 border-t-white"
+					in:scale={{ duration: 120, start: 0.82 }}
+					out:fade={{ duration: 90 }}
 				></span>
 			{/if}
 			{confirming ? '처리 중...' : confirmLabel}
