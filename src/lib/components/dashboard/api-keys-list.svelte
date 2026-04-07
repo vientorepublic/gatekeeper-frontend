@@ -3,13 +3,53 @@
 	import type { ApiKeyItem } from '$lib/api/auth-api';
 	import { formatDateTime } from '$lib/utils/date';
 
-	let { apiKeys, loadingKeys, isAuthenticated, revokingKeyId, onRevoke } = $props<{
+	let {
+		apiKeys,
+		loadingKeys,
+		isAuthenticated,
+		revokingKeyId,
+		onRevoke,
+		currentPage,
+		pageSize,
+		totalApiKeys,
+		totalPages,
+		hasNextPage,
+		hasPreviousPage,
+		onPageChange
+	} = $props<{
 		apiKeys: ApiKeyItem[];
 		loadingKeys: boolean;
 		isAuthenticated: boolean;
 		revokingKeyId: string | null;
 		onRevoke: (id: string) => void | Promise<void>;
+		currentPage: number;
+		pageSize: number;
+		totalApiKeys: number;
+		totalPages: number;
+		hasNextPage: boolean;
+		hasPreviousPage: boolean;
+		onPageChange: (page: number) => void;
 	}>();
+
+	const visibleStart = $derived(apiKeys.length === 0 ? 0 : (currentPage - 1) * pageSize + 1);
+	const visibleEnd = $derived(Math.min(currentPage * pageSize, totalApiKeys));
+	const shouldShowPagination = $derived(totalApiKeys > pageSize);
+
+	function goToPreviousPage(): void {
+		if (!hasPreviousPage || loadingKeys) {
+			return;
+		}
+
+		onPageChange(currentPage - 1);
+	}
+
+	function goToNextPage(): void {
+		if (!hasNextPage || loadingKeys) {
+			return;
+		}
+
+		onPageChange(currentPage + 1);
+	}
 </script>
 
 <div class="relative mt-6 grid gap-3 md:hidden">
@@ -180,3 +220,36 @@
 		</tbody>
 	</table>
 </div>
+
+{#if isAuthenticated && totalApiKeys > 0}
+	<div
+		class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+	>
+		<p>
+			총 {totalApiKeys}개 중 {visibleStart}-{visibleEnd} 표시
+		</p>
+		{#if shouldShowPagination}
+			<div class="flex items-center gap-2">
+				<button
+					type="button"
+					class="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+					onclick={goToPreviousPage}
+					disabled={!hasPreviousPage || loadingKeys}
+				>
+					이전
+				</button>
+				<span class="min-w-20 text-center text-xs text-slate-600"
+					>{currentPage} / {totalPages || 1}</span
+				>
+				<button
+					type="button"
+					class="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+					onclick={goToNextPage}
+					disabled={!hasNextPage || loadingKeys}
+				>
+					다음
+				</button>
+			</div>
+		{/if}
+	</div>
+{/if}

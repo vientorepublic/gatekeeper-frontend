@@ -10,6 +10,16 @@ export interface ApiKeyItem {
 	revokedAt: string | null;
 }
 
+export interface ApiKeyListResponse {
+	items: ApiKeyItem[];
+	page: number;
+	pageSize: number;
+	total: number;
+	totalPages: number;
+	hasNext: boolean;
+	hasPrevious: boolean;
+}
+
 export interface IssuedApiKey {
 	id: string;
 	namespace: string;
@@ -24,8 +34,19 @@ export async function fetchNamespaces(): Promise<string[]> {
 	return result.namespaces;
 }
 
-export async function fetchApiKeys(namespace: string): Promise<ApiKeyItem[]> {
-	return authRequest<ApiKeyItem[]>(`/auth/api-keys/${encodeURIComponent(namespace)}`);
+export async function fetchApiKeys(
+	namespace: string,
+	page = 1,
+	pageSize = 20
+): Promise<ApiKeyListResponse> {
+	const params = new URLSearchParams({
+		page: String(page),
+		pageSize: String(pageSize)
+	});
+
+	return authRequest<ApiKeyListResponse>(
+		`/auth/api-keys/${encodeURIComponent(namespace)}?${params.toString()}`
+	);
 }
 
 export async function createApiKey(namespace: string, label: string): Promise<IssuedApiKey> {

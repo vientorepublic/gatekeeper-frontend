@@ -37,9 +37,17 @@
 	let namespaces = $state<string[]>([]);
 	let selectedNamespace = $state('');
 	let apiKeys = $state<ApiKeyItem[]>([]);
+	let currentPage = $state(1);
+	let pageSize = $state(10);
+	let totalApiKeys = $state(0);
+	let totalPages = $state(0);
+	let hasNextPage = $state(false);
+	let hasPreviousPage = $state(false);
 	let newLabel = $state('');
 	let issuedPlainKey = $state('');
 	let keyCopied = $state(false);
+
+	const API_KEYS_PAGE_SIZE = 10;
 
 	const user = $derived($authStore.user);
 	const isAuthenticated = $derived(
@@ -72,6 +80,11 @@
 	async function handleSignOut(): Promise<void> {
 		clearSession();
 		apiKeys = [];
+		currentPage = 1;
+		totalApiKeys = 0;
+		totalPages = 0;
+		hasNextPage = false;
+		hasPreviousPage = false;
 		issuedPlainKey = '';
 		noticeMessage = '로그아웃되었습니다.';
 		errorMessage = '';
@@ -93,7 +106,7 @@
 		}
 	}
 
-	async function loadApiKeys(namespace: string): Promise<void> {
+	async function loadApiKeys(namespace: string, targetPage = 1): Promise<void> {
 		if (!isAuthenticated) {
 			return;
 		}
@@ -102,7 +115,14 @@
 		errorMessage = '';
 
 		try {
-			apiKeys = await fetchApiKeys(namespace);
+			const response = await fetchApiKeys(namespace, targetPage, API_KEYS_PAGE_SIZE);
+			apiKeys = response.items;
+			currentPage = response.page;
+			pageSize = response.pageSize;
+			totalApiKeys = response.total;
+			totalPages = response.totalPages;
+			hasNextPage = response.hasNext;
+			hasPreviousPage = response.hasPrevious;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to load API keys.';
 		} finally {
@@ -128,7 +148,7 @@
 			newLabel = '';
 			noticeMessage =
 				'새 API 키가 발급되었습니다. 아래 평문 키는 다시 확인할 수 없으니 지금 복사해 주세요.';
-			await loadApiKeys(selectedNamespace);
+			await loadApiKeys(selectedNamespace, 1);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to issue API key.';
 		} finally {
@@ -150,7 +170,7 @@
 			await revokeApiKeyById(selectedNamespace, id);
 
 			noticeMessage = 'API 키가 폐기되었습니다.';
-			await loadApiKeys(selectedNamespace);
+			await loadApiKeys(selectedNamespace, currentPage);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to revoke API key.';
 		} finally {
@@ -179,8 +199,9 @@
 
 	function handleNamespaceChange(namespace: string): void {
 		selectedNamespace = namespace;
+		currentPage = 1;
 		if (selectedNamespace) {
-			void loadApiKeys(selectedNamespace);
+			void loadApiKeys(selectedNamespace, 1);
 		}
 	}
 
@@ -190,8 +211,16 @@
 
 	function handleRefreshKeys(): void {
 		if (selectedNamespace) {
-			void loadApiKeys(selectedNamespace);
+			void loadApiKeys(selectedNamespace, currentPage);
 		}
+	}
+
+	function handlePageChange(page: number): void {
+		if (!selectedNamespace || loadingKeys) {
+			return;
+		}
+
+		void loadApiKeys(selectedNamespace, page);
 	}
 
 	function requestIssueApiKey(): void {
@@ -326,7 +355,14 @@
 					{loadingKeys}
 					{isAuthenticated}
 					{revokingKeyId}
+					{currentPage}
+					{pageSize}
+					{totalApiKeys}
+					{totalPages}
+					{hasNextPage}
+					{hasPreviousPage}
 					onRevoke={requestRevokeApiKey}
+					onPageChange={handlePageChange}
 				/>
 			{/if}
 		</section>
