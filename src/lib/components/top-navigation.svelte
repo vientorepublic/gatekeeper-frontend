@@ -13,9 +13,10 @@
 	let profileOpen = $state(false);
 	let menuElement: HTMLDivElement | null = null;
 	let avatarLoadFailed = $state(false);
+	const isUserLoading = $derived(user === null);
 
-	const displayName = $derived(user?.name || user?.email || 'Unknown user');
-	const secondaryIdentity = $derived(user?.email || user?.subject || '-');
+	const displayName = $derived(user?.name || user?.email || '사용자');
+	const secondaryIdentity = $derived(user?.email || user?.subject || '');
 	const userInitial = $derived(
 		(user?.name || user?.email || user?.subject || '?').slice(0, 1).toUpperCase()
 	);
@@ -23,6 +24,10 @@
 	const showAvatarImage = $derived(Boolean(avatarUrl) && !avatarLoadFailed);
 
 	function toggleProfile(): void {
+		if (isUserLoading) {
+			return;
+		}
+
 		profileOpen = !profileOpen;
 	}
 
@@ -37,6 +42,12 @@
 	$effect(() => {
 		void user?.avatarUrl;
 		avatarLoadFailed = false;
+	});
+
+	$effect(() => {
+		if (isUserLoading && profileOpen) {
+			closeProfile();
+		}
 	});
 
 	onMount(() => {
@@ -76,20 +87,23 @@
 			>
 			<div class="leading-tight">
 				<p class="text-sm font-semibold tracking-wide text-slate-900">Gatekeeper</p>
-				<p class="text-[11px] text-slate-500">API Gateway Console</p>
+				<p class="text-[11px] text-slate-500">Developer Portal</p>
 			</div>
 		</a>
 
 		<div class="relative z-30" bind:this={menuElement}>
 			<button
 				type="button"
-				class="flex cursor-pointer items-center gap-3 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-left transition hover:bg-slate-50"
+				class="flex cursor-pointer items-center gap-3 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-left transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-80"
 				onclick={toggleProfile}
 				aria-expanded={profileOpen}
 				aria-haspopup="menu"
 				aria-controls="profile-menu"
+				disabled={isUserLoading}
 			>
-				{#if showAvatarImage && avatarUrl}
+				{#if isUserLoading}
+					<span class="inline-flex h-8 w-8 animate-pulse rounded-full bg-slate-200"></span>
+				{:else if showAvatarImage && avatarUrl}
 					<img
 						src={avatarUrl}
 						alt="사용자 프로필 이미지"
@@ -104,15 +118,20 @@
 					</span>
 				{/if}
 				<span class="hidden min-w-0 sm:block">
-					<span class="block truncate text-sm font-medium text-slate-900">{displayName}</span>
-					<span class="block truncate text-xs text-slate-500">{secondaryIdentity}</span>
+					{#if isUserLoading}
+						<span class="block h-3.5 w-32 animate-pulse rounded bg-slate-200"></span>
+						<span class="mt-1 block h-3 w-24 animate-pulse rounded bg-slate-100"></span>
+					{:else}
+						<span class="block truncate text-sm font-medium text-slate-900">{displayName}</span>
+						<span class="block truncate text-xs text-slate-500">{secondaryIdentity}</span>
+					{/if}
 				</span>
 			</button>
 
-			{#if profileOpen}
+			{#if profileOpen && !isUserLoading}
 				<button
 					type="button"
-					class="fixed inset-0 z-20 bg-slate-900/5 backdrop-blur-[1px]"
+					class="fixed inset-0 z-20"
 					onclick={closeProfile}
 					aria-label="프로필 메뉴 닫기"
 					transition:fade={{ duration: 140 }}
@@ -141,13 +160,13 @@
 							</span>
 						{/if}
 						<div class="min-w-0">
+							<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+								Signed In As
+							</p>
 							<p class="truncate text-sm font-semibold text-slate-900">{displayName}</p>
 							<p class="truncate text-xs text-slate-600">{secondaryIdentity}</p>
 						</div>
 					</div>
-					<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Signed In As</p>
-					<p class="mt-2 text-sm font-semibold text-slate-900">{user?.name || '-'}</p>
-					<p class="truncate text-xs text-slate-600">{user?.email || '-'}</p>
 					<button
 						type="button"
 						role="menuitem"

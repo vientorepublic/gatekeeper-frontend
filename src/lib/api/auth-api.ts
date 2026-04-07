@@ -29,9 +29,23 @@ export interface IssuedApiKey {
 	label: string | null;
 }
 
+export interface RouteGuideNamespace {
+	namespace: string;
+	supportsAnyVersion: boolean;
+	versions: string[];
+}
+
+export interface RouteGuideResponse {
+	namespaces: RouteGuideNamespace[];
+}
+
 export async function fetchNamespaces(): Promise<string[]> {
 	const result = await authRequest<{ namespaces: string[] }>('/auth/namespaces');
 	return result.namespaces;
+}
+
+export async function fetchRouteGuide(): Promise<RouteGuideResponse> {
+	return authRequest<RouteGuideResponse>('/auth/route-map');
 }
 
 export async function fetchApiKeys(

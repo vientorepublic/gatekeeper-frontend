@@ -10,8 +10,10 @@
 	import {
 		createApiKey,
 		type ApiKeyItem,
+		type RouteGuideNamespace,
 		fetchApiKeys,
 		fetchNamespaces,
+		fetchRouteGuide,
 		revokeApiKeyById
 	} from '$lib/api/auth-api';
 	import ConfirmModal from '$lib/components/common/confirm-modal.svelte';
@@ -19,10 +21,12 @@
 	import DashboardIntroCard from '$lib/components/dashboard/dashboard-intro-card.svelte';
 	import IssuedKeyPanel from '$lib/components/dashboard/issued-key-panel.svelte';
 	import NamespaceActionsPanel from '$lib/components/dashboard/namespace-actions-panel.svelte';
+	import RestApiGuidePanel from '$lib/components/dashboard/rest-api-guide-panel.svelte';
 	import TopNavigation from '$lib/components/top-navigation.svelte';
 	import { onMount } from 'svelte';
 
 	let loadingNamespaces = $state(false);
+	let loadingRouteGuide = $state(false);
 	let loadingKeys = $state(false);
 	let issuingKey = $state(false);
 	let confirmIssueOpen = $state(false);
@@ -35,7 +39,9 @@
 	let noticeMessage = $state('');
 
 	let namespaces = $state<string[]>([]);
+	let routeGuides = $state<RouteGuideNamespace[]>([]);
 	let selectedNamespace = $state('');
+	let selectedRouteVersion = $state('');
 	let apiKeys = $state<ApiKeyItem[]>([]);
 	let currentPage = $state(1);
 	let pageSize = $state(10);
@@ -54,7 +60,15 @@
 		Boolean($authStore.gatewayAccessToken) && $authStore.user !== null
 	);
 	const isBusy = $derived(
-		loadingNamespaces || loadingKeys || issuingKey || copyingIssuedKey || Boolean(revokingKeyId)
+		loadingNamespaces ||
+			loadingRouteGuide ||
+			loadingKeys ||
+			issuingKey ||
+			copyingIssuedKey ||
+			Boolean(revokingKeyId)
+	);
+	const currentRouteGuide = $derived(
+		routeGuides.find((guide) => guide.namespace === selectedNamespace) ?? null
 	);
 
 	onMount(async () => {
@@ -67,7 +81,7 @@
 				return;
 			}
 
-			await loadNamespaces();
+			await Promise.all([loadNamespaces(), loadRouteGuide()]);
 
 			if (selectedNamespace) {
 				await loadApiKeys(selectedNamespace);
@@ -99,10 +113,43 @@
 			if (!selectedNamespace && namespaces.length > 0) {
 				selectedNamespace = namespaces[0] as string;
 			}
+
+			syncRouteVersionForNamespace(selectedNamespace);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to load namespaces.';
 		} finally {
 			loadingNamespaces = false;
+		}
+	}
+
+	async function loadRouteGuide(): Promise<void> {
+		loadingRouteGuide = true;
+
+		try {
+			const response = await fetchRouteGuide();
+			routeGuides = response.namespaces;
+			syncRouteVersionForNamespace(selectedNamespace);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to load route map guide.';
+		} finally {
+			loadingRouteGuide = false;
+		}
+	}
+
+	function syncRouteVersionForNamespace(namespace: string): void {
+		const guide = routeGuides.find((entry) => entry.namespace === namespace);
+		if (!guide) {
+			selectedRouteVersion = '';
+			return;
+		}
+
+		if (guide.versions.length === 0) {
+			selectedRouteVersion = '';
+			return;
+		}
+
+		if (!guide.versions.includes(selectedRouteVersion)) {
+			selectedRouteVersion = guide.versions[0] ?? '';
 		}
 	}
 
@@ -199,10 +246,15 @@
 
 	function handleNamespaceChange(namespace: string): void {
 		selectedNamespace = namespace;
+		syncRouteVersionForNamespace(namespace);
 		currentPage = 1;
 		if (selectedNamespace) {
 			void loadApiKeys(selectedNamespace, 1);
 		}
+	}
+
+	function handleRouteVersionChange(version: string): void {
+		selectedRouteVersion = version;
 	}
 
 	function handleNewLabelChange(label: string): void {
@@ -280,6 +332,8 @@
 	<div class="sr-only" aria-live="polite">
 		{#if bootstrappingDashboard}
 			대시보드 초기 데이터를 불러오는 중입니다.
+		{:else if loadingRouteGuide}
+			라우트 가이드를 불러오는 중입니다.
 		{:else if loadingKeys}
 			API 키 목록을 새로 불러오는 중입니다.
 		{:else if issuingKey}
@@ -326,13 +380,34 @@
 
 		<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" aria-busy={isBusy}>
 			{#if bootstrappingDashboard}
-				<div class="space-y-4">
-					<div class="h-5 w-28 animate-pulse rounded bg-slate-200"></div>
-					<div class="h-10 w-full animate-pulse rounded-xl bg-slate-200"></div>
-					<div class="h-10 w-full animate-pulse rounded-xl bg-slate-200"></div>
-					<div class="grid gap-3 md:grid-cols-2">
-						<div class="h-22 animate-pulse rounded-2xl bg-slate-100"></div>
-						<div class="h-22 animate-pulse rounded-2xl bg-slate-100"></div>
+				<div class="space-y-6">
+					<div class="space-y-3">
+						<div class="h-4 w-28 animate-pulse rounded bg-slate-200"></div>
+						<div class="grid gap-3 md:grid-cols-[1fr_auto]">
+							<div class="h-10 w-full animate-pulse rounded-xl bg-slate-200"></div>
+							<div class="h-10 w-28 animate-pulse rounded-xl bg-slate-200"></div>
+						</div>
+						<div class="grid gap-3 md:grid-cols-[1fr_auto]">
+							<div class="h-10 w-full animate-pulse rounded-xl bg-slate-100"></div>
+							<div class="h-10 w-28 animate-pulse rounded-xl bg-slate-100"></div>
+						</div>
+					</div>
+
+					<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 md:p-5">
+						<div class="flex items-center justify-between gap-3">
+							<div class="h-4 w-36 animate-pulse rounded bg-slate-200"></div>
+							<div class="h-8 w-24 animate-pulse rounded-lg bg-slate-200"></div>
+						</div>
+						<div class="mt-4 grid gap-4 md:grid-cols-2">
+							<div class="h-24 animate-pulse rounded-xl bg-white"></div>
+							<div class="h-24 animate-pulse rounded-xl bg-white"></div>
+						</div>
+					</div>
+
+					<div class="space-y-3">
+						<div class="h-9 w-full animate-pulse rounded-xl bg-slate-100"></div>
+						<div class="h-9 w-full animate-pulse rounded-xl bg-slate-100"></div>
+						<div class="h-9 w-full animate-pulse rounded-xl bg-slate-100"></div>
 					</div>
 				</div>
 			{:else}
@@ -348,6 +423,16 @@
 					onRefresh={handleRefreshKeys}
 					onIssue={requestIssueApiKey}
 					onNewLabelChange={handleNewLabelChange}
+				/>
+
+				<RestApiGuidePanel
+					{selectedNamespace}
+					selectedVersion={selectedRouteVersion}
+					supportsAnyVersion={Boolean(currentRouteGuide?.supportsAnyVersion)}
+					availableVersions={currentRouteGuide?.versions ?? []}
+					loading={loadingRouteGuide}
+					{isAuthenticated}
+					onVersionChange={handleRouteVersionChange}
 				/>
 
 				{#if issuedPlainKey}
