@@ -51,22 +51,20 @@
 
 		{#if hasNamespace}
 			<div class="flex w-full items-center gap-2 text-xs text-slate-700 sm:w-auto">
-				<span class="font-medium">Version</span>
-				<select
-					value={selectedVersion}
-					onchange={(event) => onVersionChange(event.currentTarget.value)}
-					class="w-full rounded-lg border-slate-300 bg-white px-2 py-1 sm:w-40"
-					aria-label="요청 버전"
-					disabled={!hasFixedVersions}
-				>
-					{#if hasFixedVersions}
+				{#if hasFixedVersions}
+					<span class="font-medium">Version</span>
+					<select
+						value={selectedVersion}
+						onchange={(event) => onVersionChange(event.currentTarget.value)}
+						class="w-full rounded-lg border-slate-300 bg-white px-2 py-1 sm:w-40"
+						aria-label="요청 버전"
+						disabled={!hasFixedVersions}
+					>
 						{#each availableVersions as version (version)}
 							<option value={version}>{version}</option>
 						{/each}
-					{:else}
-						<option value="">버전 정의 없음</option>
-					{/if}
-				</select>
+					</select>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -93,9 +91,6 @@
 			<div class="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
 				<p class="text-xs font-semibold text-slate-700">기본 규칙</p>
 				<ul class="mt-2 space-y-1 text-xs text-slate-600">
-					{#if !hasFixedVersions}
-						<li>라우트맵에 고정 버전이 정의되지 않아 버전 선택이 비활성화되었습니다.</li>
-					{/if}
 					<li>
 						Base Path:
 						<span class="font-mono break-all text-slate-800">{endpointBase}</span>
