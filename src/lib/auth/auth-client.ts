@@ -8,6 +8,7 @@ export interface AuthUser {
 	subject: string;
 	email: string | null;
 	name: string | null;
+	avatarUrl: string | null;
 }
 
 export interface AuthSessionResponse {
@@ -47,6 +48,35 @@ export const authStore = writable<AuthState>(initialState);
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inFlightRefresh: Promise<boolean> | null = null;
+
+function normalizeAvatarUrl(value: string | null | undefined): string | null {
+	if (typeof value !== 'string') {
+		return null;
+	}
+
+	const normalized = value.trim();
+	if (!normalized) {
+		return null;
+	}
+
+	try {
+		const parsed = new URL(normalized);
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+			return null;
+		}
+
+		return parsed.toString();
+	} catch {
+		return null;
+	}
+}
+
+function normalizeUser(user: AuthUser): AuthUser {
+	return {
+		...user,
+		avatarUrl: normalizeAvatarUrl(user.avatarUrl)
+	};
+}
 
 function clearRefreshTimer(): void {
 	if (refreshTimer) {
@@ -103,12 +133,13 @@ function persistSession(state: AuthState): void {
 
 function applySession(session: AuthSessionResponse): void {
 	const oauthAccessTokenExpiresAt = toExpiresAt(session.oauthAccessTokenExpiresIn);
+	const normalizedUser = normalizeUser(session.user);
 	const nextState: AuthState = {
 		status: 'authenticated',
 		gatewayAccessToken: session.accessToken,
 		refreshToken: session.refreshToken,
 		oauthAccessTokenExpiresAt,
-		user: session.user,
+		user: normalizedUser,
 		errorMessage: ''
 	};
 
@@ -144,7 +175,7 @@ export function initializeAuthState(): void {
 	let user: AuthUser | null = null;
 	if (storedUser) {
 		try {
-			user = JSON.parse(storedUser) as AuthUser;
+			user = normalizeUser(JSON.parse(storedUser) as AuthUser);
 		} catch {
 			user = null;
 		}

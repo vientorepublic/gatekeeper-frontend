@@ -12,6 +12,15 @@
 
 	let profileOpen = $state(false);
 	let menuElement: HTMLDivElement | null = null;
+	let avatarLoadFailed = $state(false);
+
+	const displayName = $derived(user?.name || user?.email || 'Unknown user');
+	const secondaryIdentity = $derived(user?.email || user?.subject || '-');
+	const userInitial = $derived(
+		(user?.name || user?.email || user?.subject || '?').slice(0, 1).toUpperCase()
+	);
+	const avatarUrl = $derived(user?.avatarUrl?.trim() || null);
+	const showAvatarImage = $derived(Boolean(avatarUrl) && !avatarLoadFailed);
 
 	function toggleProfile(): void {
 		profileOpen = !profileOpen;
@@ -20,6 +29,15 @@
 	function closeProfile(): void {
 		profileOpen = false;
 	}
+
+	function handleAvatarError(): void {
+		avatarLoadFailed = true;
+	}
+
+	$effect(() => {
+		void user?.avatarUrl;
+		avatarLoadFailed = false;
+	});
 
 	onMount(() => {
 		function handleDocumentClick(event: MouseEvent): void {
@@ -71,18 +89,23 @@
 				aria-haspopup="menu"
 				aria-controls="profile-menu"
 			>
-				<span
-					class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white"
-				>
-					{(user?.name || user?.email || user?.subject || '?').slice(0, 1).toUpperCase()}
-				</span>
+				{#if showAvatarImage && avatarUrl}
+					<img
+						src={avatarUrl}
+						alt="사용자 프로필 이미지"
+						class="h-8 w-8 rounded-full border border-slate-200 object-cover"
+						onerror={handleAvatarError}
+					/>
+				{:else}
+					<span
+						class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white"
+					>
+						{userInitial}
+					</span>
+				{/if}
 				<span class="hidden min-w-0 sm:block">
-					<span class="block truncate text-sm font-medium text-slate-900"
-						>{user?.name || user?.email || 'Unknown user'}</span
-					>
-					<span class="block truncate text-xs text-slate-500"
-						>{user?.email || user?.subject || '-'}</span
-					>
+					<span class="block truncate text-sm font-medium text-slate-900">{displayName}</span>
+					<span class="block truncate text-xs text-slate-500">{secondaryIdentity}</span>
 				</span>
 			</button>
 
@@ -102,6 +125,26 @@
 					in:fly={{ y: -8, duration: 170, easing: cubicOut }}
 					out:fade={{ duration: 120 }}
 				>
+					<div class="mb-2 flex items-center gap-3">
+						{#if showAvatarImage && avatarUrl}
+							<img
+								src={avatarUrl}
+								alt="사용자 프로필 이미지"
+								class="h-10 w-10 rounded-full border border-slate-200 object-cover"
+								onerror={handleAvatarError}
+							/>
+						{:else}
+							<span
+								class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white"
+							>
+								{userInitial}
+							</span>
+						{/if}
+						<div class="min-w-0">
+							<p class="truncate text-sm font-semibold text-slate-900">{displayName}</p>
+							<p class="truncate text-xs text-slate-600">{secondaryIdentity}</p>
+						</div>
+					</div>
 					<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Signed In As</p>
 					<p class="mt-2 text-sm font-semibold text-slate-900">{user?.name || '-'}</p>
 					<p class="truncate text-xs text-slate-600">{user?.email || '-'}</p>
