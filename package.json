@@ -38,6 +38,7 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
+		"@fontsource/pretendard": "^5.2.5",
 		"flowauth-oauth2-client": "^4.3.0"
 	}
 }

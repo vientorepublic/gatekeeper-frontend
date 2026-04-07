@@ -3,7 +3,7 @@
 @plugin '@tailwindcss/typography';
 
 :root {
-	--font-ui: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+	--font-ui: 'Pretendard', 'Avenir Next', 'Segoe UI', sans-serif;
 	--surface-bg: #f7fafc;
 	--focus-ring: #0f172a;
 }

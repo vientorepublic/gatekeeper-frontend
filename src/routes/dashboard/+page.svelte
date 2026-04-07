@@ -14,6 +14,7 @@
 		fetchNamespaces,
 		revokeApiKeyById
 	} from '$lib/api/auth-api';
+	import ConfirmModal from '$lib/components/common/confirm-modal.svelte';
 	import ApiKeysList from '$lib/components/dashboard/api-keys-list.svelte';
 	import DashboardIntroCard from '$lib/components/dashboard/dashboard-intro-card.svelte';
 	import IssuedKeyPanel from '$lib/components/dashboard/issued-key-panel.svelte';
@@ -24,7 +25,10 @@
 	let loadingNamespaces = $state(false);
 	let loadingKeys = $state(false);
 	let issuingKey = $state(false);
+	let confirmIssueOpen = $state(false);
 	let revokingKeyId = $state<string | null>(null);
+	let confirmRevokeOpen = $state(false);
+	let pendingRevokeKeyId = $state<string | null>(null);
 	let copyingIssuedKey = $state(false);
 	let bootstrappingDashboard = $state(true);
 	let errorMessage = $state('');
@@ -111,6 +115,7 @@
 			return;
 		}
 
+		confirmIssueOpen = false;
 		issuingKey = true;
 		keyCopied = false;
 		errorMessage = '';
@@ -136,14 +141,9 @@
 			return;
 		}
 
-		const confirmed = window.confirm(
-			'해당 API 키를 폐기하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
-		);
-		if (!confirmed) {
-			return;
-		}
-
 		revokingKeyId = id;
+		pendingRevokeKeyId = null;
+		confirmRevokeOpen = false;
 		errorMessage = '';
 
 		try {
@@ -192,6 +192,52 @@
 		if (selectedNamespace) {
 			void loadApiKeys(selectedNamespace);
 		}
+	}
+
+	function requestIssueApiKey(): void {
+		if (issuingKey) {
+			return;
+		}
+
+		confirmIssueOpen = true;
+	}
+
+	function cancelIssueConfirm(): void {
+		if (issuingKey) {
+			return;
+		}
+
+		confirmIssueOpen = false;
+	}
+
+	async function confirmIssueApiKey(): Promise<void> {
+		await issueApiKey();
+	}
+
+	function requestRevokeApiKey(id: string): void {
+		if (revokingKeyId) {
+			return;
+		}
+
+		pendingRevokeKeyId = id;
+		confirmRevokeOpen = true;
+	}
+
+	function cancelRevokeConfirm(): void {
+		if (revokingKeyId) {
+			return;
+		}
+
+		pendingRevokeKeyId = null;
+		confirmRevokeOpen = false;
+	}
+
+	async function confirmRevokeApiKey(): Promise<void> {
+		if (!pendingRevokeKeyId) {
+			return;
+		}
+
+		await revokeApiKey(pendingRevokeKeyId);
 	}
 </script>
 
@@ -267,7 +313,7 @@
 					{isAuthenticated}
 					onNamespaceChange={handleNamespaceChange}
 					onRefresh={handleRefreshKeys}
-					onIssue={issueApiKey}
+					onIssue={requestIssueApiKey}
 					onNewLabelChange={handleNewLabelChange}
 				/>
 
@@ -280,9 +326,31 @@
 					{loadingKeys}
 					{isAuthenticated}
 					{revokingKeyId}
-					onRevoke={revokeApiKey}
+					onRevoke={requestRevokeApiKey}
 				/>
 			{/if}
 		</section>
 	</div>
+
+	<ConfirmModal
+		open={confirmIssueOpen}
+		title="API 키 발급"
+		message="선택한 namespace에 새로운 API 키를 발급하시겠습니까? 발급 직후에만 평문 키를 확인할 수 있습니다."
+		confirmLabel="발급"
+		cancelLabel="취소"
+		confirming={issuingKey}
+		onConfirm={confirmIssueApiKey}
+		onCancel={cancelIssueConfirm}
+	/>
+
+	<ConfirmModal
+		open={confirmRevokeOpen}
+		title="API 키 폐기"
+		message="해당 API 키를 폐기하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+		confirmLabel="폐기"
+		cancelLabel="취소"
+		confirming={Boolean(revokingKeyId)}
+		onConfirm={confirmRevokeApiKey}
+		onCancel={cancelRevokeConfirm}
+	/>
 </main>
