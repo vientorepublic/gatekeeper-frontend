@@ -1,6 +1,8 @@
 # Gatekeeper Frontend
 
-SvelteKit + Tailwind CSS 기반 Gatekeeper 인증/키 관리 콘솔입니다.
+Gatekeeper 프론트엔드(SvelteKit) 저장소입니다.
+
+프로젝트 전반 소개와 멀티 리포지토리 구조는 루트 README를 참고하세요.
 
 ## 구현 범위
 
