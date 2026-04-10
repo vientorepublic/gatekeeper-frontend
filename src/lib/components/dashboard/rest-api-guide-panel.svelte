@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { env } from '$env/dynamic/public';
+
 	let {
 		selectedNamespace,
 		selectedVersion,
@@ -21,6 +23,9 @@
 	const hasNamespace = $derived(selectedNamespace.trim().length > 0);
 	const hasFixedVersions = $derived(availableVersions.length > 0);
 	const pathVersionToken = $derived(sanitizedVersion || '{version}');
+	const apiBaseUrl = $derived(
+		(env.PUBLIC_GATEKEEPER_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
+	);
 	const endpointBase = $derived(
 		hasNamespace ? `/api/${selectedNamespace}/${pathVersionToken}` : '/api/{namespace}/{version}'
 	);
@@ -28,14 +33,14 @@
 	const samplePostPath = $derived(`${endpointBase}/items`);
 	const curlGetSnippet = $derived(
 		[
-			`curl -X GET "${sampleGetPath}"`,
+			`curl -X GET "${apiBaseUrl}${sampleGetPath}"`,
 			'  -H "Authorization: Bearer <issued_api_key>"',
 			'  -H "Accept: application/json"'
 		].join(' \\\n')
 	);
 	const curlPostSnippet = $derived(
 		[
-			`curl -X POST "${samplePostPath}"`,
+			`curl -X POST "${apiBaseUrl}${samplePostPath}"`,
 			'  -H "Authorization: Bearer <issued_api_key>"',
 			'  -H "Content-Type: application/json"',
 			'  -d \'{"name":"sample"}\''
