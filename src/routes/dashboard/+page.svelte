@@ -18,7 +18,6 @@
 	} from '$lib/api/auth-api';
 	import ConfirmModal from '$lib/components/common/confirm-modal.svelte';
 	import ApiKeysList from '$lib/components/dashboard/api-keys-list.svelte';
-	import DashboardIntroCard from '$lib/components/dashboard/dashboard-intro-card.svelte';
 	import IssuedKeyPanel from '$lib/components/dashboard/issued-key-panel.svelte';
 	import NamespaceActionsPanel from '$lib/components/dashboard/namespace-actions-panel.svelte';
 	import RestApiGuidePanel from '$lib/components/dashboard/rest-api-guide-panel.svelte';
@@ -348,8 +347,6 @@
 	</div>
 
 	<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8" aria-busy={isBusy}>
-		<DashboardIntroCard {user} status={$authStore.status} />
-
 		{#if errorMessage}
 			<div class="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700">
 				{errorMessage}
