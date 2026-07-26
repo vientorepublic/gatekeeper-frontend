@@ -81,12 +81,8 @@
 <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
 	<div class="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
 		<a href={resolve('/dashboard')} class="flex items-center gap-2" onclick={closeProfile}>
-			<span
-				class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white"
-				>GK</span
-			>
 			<div class="leading-tight">
-				<p class="text-sm font-semibold tracking-wide text-slate-900">Gatekeeper</p>
+				<p class="text-lg font-bold tracking-wide text-slate-900">Gatekeeper</p>
 				<p class="text-[11px] text-slate-500">Developer Portal</p>
 			</div>
 		</a>

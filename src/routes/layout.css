@@ -3,7 +3,6 @@
 @plugin '@tailwindcss/typography';
 
 :root {
-	--font-ui: 'Pretendard', 'Avenir Next', 'Segoe UI', sans-serif;
 	--surface-bg: #f7fafc;
 	--focus-ring: #0f172a;
 }
@@ -11,7 +10,9 @@
 @layer base {
 	html,
 	body {
-		font-family: var(--font-ui);
+		font-family:
+			'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI',
+			'Helvetica Neue', Arial, system-ui, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji';
 		background-color: var(--surface-bg);
 		color: #0f172a;
 	}
