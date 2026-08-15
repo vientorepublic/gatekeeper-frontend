@@ -1,7 +1,10 @@
-import adapter from '@sveltejs/adapter-node';
+import cloudflareAdapter from '@sveltejs/adapter-cloudflare';
+import nodeAdapter from '@sveltejs/adapter-node';
 import { relative, sep } from 'node:path';
 
 /** @type {import('@sveltejs/kit').Config} */
+const adapter = process.env.ADAPTER === 'cloudflare' ? cloudflareAdapter : nodeAdapter;
+
 const config = {
 	compilerOptions: {
 		// defaults to rune mode for the project, except for `node_modules`. Can be removed in svelte 6.
