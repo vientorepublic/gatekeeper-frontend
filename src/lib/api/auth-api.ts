@@ -1,51 +1,28 @@
-import { authRequest } from '$lib/auth/auth-client';
+import { authRequest } from '#lib/auth/auth-client.js';
 
-export interface ApiKeyItem {
-	id: string;
-	namespace: string;
-	prefix: string;
-	label: string | null;
-	createdAt: string;
-	lastUsedAt: string | null;
-	revokedAt: string | null;
-}
-
-export interface ApiKeyListResponse {
-	items: ApiKeyItem[];
-	page: number;
-	pageSize: number;
-	total: number;
-	totalPages: number;
-	hasNext: boolean;
-	hasPrevious: boolean;
-}
-
-export interface IssuedApiKey {
-	id: string;
-	namespace: string;
-	apiKey: string;
-	prefix: string;
-	createdAt: string;
-	label: string | null;
-}
-
-export interface RouteGuideNamespace {
-	namespace: string;
-	supportsAnyVersion: boolean;
-	versions: string[];
-}
-
-export interface RouteGuideResponse {
-	namespaces: RouteGuideNamespace[];
-}
+import type { ApiKeyListResponse, IssuedApiKey, RouteGuideResponse } from './api-types.js';
+import {
+	parseNamespaces,
+	parseRouteGuide,
+	parseApiKeys,
+	parseIssuedKey,
+	parseRevocation
+} from './api-decoders.js';
+export type {
+	ApiKeyItem,
+	ApiKeyListResponse,
+	IssuedApiKey,
+	RouteGuideNamespace,
+	RouteGuideResponse
+} from './api-types.js';
 
 export async function fetchNamespaces(): Promise<string[]> {
-	const result = await authRequest<{ namespaces: string[] }>('/auth/namespaces');
+	const result = await authRequest('/auth/namespaces', parseNamespaces);
 	return result.namespaces;
 }
 
 export async function fetchRouteGuide(): Promise<RouteGuideResponse> {
-	return authRequest<RouteGuideResponse>('/auth/route-map');
+	return authRequest('/auth/route-map', parseRouteGuide);
 }
 
 export async function fetchApiKeys(
@@ -58,13 +35,14 @@ export async function fetchApiKeys(
 		pageSize: String(pageSize)
 	});
 
-	return authRequest<ApiKeyListResponse>(
-		`/auth/api-keys/${encodeURIComponent(namespace)}?${params.toString()}`
+	return authRequest(
+		`/auth/api-keys/${encodeURIComponent(namespace)}?${params.toString()}`,
+		parseApiKeys
 	);
 }
 
 export async function createApiKey(namespace: string, label: string): Promise<IssuedApiKey> {
-	return authRequest<IssuedApiKey>(`/auth/api-keys/${encodeURIComponent(namespace)}`, {
+	return authRequest(`/auth/api-keys/${encodeURIComponent(namespace)}`, parseIssuedKey, {
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json'
@@ -76,10 +54,12 @@ export async function createApiKey(namespace: string, label: string): Promise<Is
 }
 
 export async function revokeApiKeyById(namespace: string, id: string): Promise<void> {
-	await authRequest<{ revoked: boolean }>(
+	const result = await authRequest(
 		`/auth/api-keys/${encodeURIComponent(namespace)}/${encodeURIComponent(id)}`,
+		parseRevocation,
 		{
 			method: 'DELETE'
 		}
 	);
+	if (!result.revoked) throw new Error('API key could not be revoked.');
 }

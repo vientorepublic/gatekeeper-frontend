@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
+	import { dialogFocus } from '#lib/utils/dialog-focus.js';
 
 	let {
 		open,
@@ -9,7 +10,7 @@
 		ariaDescribedBy,
 		showCloseButton = true,
 		children
-	} = $props<{
+	}: {
 		open: boolean;
 		onClose: () => void;
 		closeDisabled?: boolean;
@@ -17,7 +18,7 @@
 		ariaDescribedBy?: string;
 		showCloseButton?: boolean;
 		children: import('svelte').Snippet;
-	}>();
+	} = $props();
 
 	function tryClose(): void {
 		if (!closeDisabled) {
@@ -49,6 +50,8 @@
 		onclick={handleBackdropClick}
 	>
 		<div
+			use:dialogFocus
+			tabindex="-1"
 			class="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
 			role="dialog"
 			aria-modal="true"
