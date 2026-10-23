@@ -8,7 +8,7 @@
 		handleOAuthCallbackIfPresent,
 		initializeAuthState,
 		startOAuthLogin
-	} from '$lib/auth/auth-client';
+	} from '#lib/auth/auth-client.js';
 	import { onMount } from 'svelte';
 
 	const callbackError = $derived($authStore.errorMessage);
@@ -22,23 +22,31 @@
 	);
 
 	onMount(async () => {
-		initializeAuthState();
-		loginInProgress = true;
+		try {
+			initializeAuthState();
+			loginInProgress = true;
 
-		const callbackHandled = await handleOAuthCallbackIfPresent();
-		const snapshot = getAuthSnapshot();
+			const callbackHandled = await handleOAuthCallbackIfPresent();
+			const snapshot = getAuthSnapshot();
 
-		if (snapshot.gatewayAccessToken && snapshot.user) {
-			await goto(resolve('/dashboard'));
-			return;
+			if (snapshot.gatewayAccessToken && snapshot.user) {
+				await goto(resolve('/dashboard'));
+				return;
+			}
+
+			if (!callbackHandled && snapshot.status !== 'error') {
+				await startOAuthLogin();
+			}
+		} catch (error) {
+			authStore.update((state) => ({
+				...state,
+				status: 'error',
+				errorMessage: error instanceof Error ? error.message : 'Failed to initialize login.'
+			}));
+		} finally {
+			isBootstrapping = false;
+			loginInProgress = false;
 		}
-
-		if (!callbackHandled && snapshot.status !== 'error') {
-			await startOAuthLogin();
-		}
-
-		isBootstrapping = false;
-		loginInProgress = false;
 	});
 
 	async function retryOAuthLogin(): Promise<void> {

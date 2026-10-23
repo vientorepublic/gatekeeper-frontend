@@ -1,23 +1,17 @@
-import { browser } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { browser } from '$app/env';
+import { PUBLIC_GATEKEEPER_API_BASE_URL } from '$app/env/public';
 import { get, writable } from 'svelte/store';
 
-export interface AuthUser {
-	id: string;
-	provider: string;
-	subject: string;
-	email: string | null;
-	name: string | null;
-	avatarUrl: string | null;
-}
-
-export interface AuthSessionResponse {
-	accessToken: string;
-	refreshToken: string | null;
-	oauthAccessTokenExpiresIn: number | null;
-	tokenType: 'Bearer';
-	user: AuthUser;
-}
+import { readJsonResponse } from '../api/http-client.js';
+import type { Decoder } from '../api/validation.js';
+import {
+	isAuthUser,
+	parseSession,
+	parseAuthorization,
+	type AuthUser,
+	type AuthSessionResponse
+} from './auth-types.js';
+export type { AuthUser, AuthSessionResponse } from './auth-types.js';
 
 export interface AuthState {
 	status: 'unknown' | 'unauthenticated' | 'authenticated' | 'refreshing' | 'error';
@@ -32,8 +26,9 @@ const ACCESS_TOKEN_KEY = 'gatekeeper:access-token';
 const REFRESH_TOKEN_KEY = 'gatekeeper:refresh-token';
 const OAUTH_EXPIRES_AT_KEY = 'gatekeeper:oauth-expires-at';
 const USER_KEY = 'gatekeeper:user';
+const OAUTH_STATE_KEY = 'gatekeeper:oauth-state';
 
-const API_BASE = (env.PUBLIC_GATEKEEPER_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const API_BASE = (PUBLIC_GATEKEEPER_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 const initialState: AuthState = {
 	status: 'unknown',
@@ -48,6 +43,7 @@ export const authStore = writable<AuthState>(initialState);
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inFlightRefresh: Promise<boolean> | null = null;
+let sessionRevision = 0;
 
 function normalizeAvatarUrl(value: string | null | undefined): string | null {
 	if (typeof value !== 'string') {
@@ -106,32 +102,37 @@ function persistSession(state: AuthState): void {
 		return;
 	}
 
-	if (state.gatewayAccessToken) {
-		localStorage.setItem(ACCESS_TOKEN_KEY, state.gatewayAccessToken);
-	} else {
-		localStorage.removeItem(ACCESS_TOKEN_KEY);
-	}
+	try {
+		if (state.gatewayAccessToken) {
+			localStorage.setItem(ACCESS_TOKEN_KEY, state.gatewayAccessToken);
+		} else {
+			localStorage.removeItem(ACCESS_TOKEN_KEY);
+		}
 
-	if (state.refreshToken) {
-		localStorage.setItem(REFRESH_TOKEN_KEY, state.refreshToken);
-	} else {
-		localStorage.removeItem(REFRESH_TOKEN_KEY);
-	}
+		if (state.refreshToken) {
+			localStorage.setItem(REFRESH_TOKEN_KEY, state.refreshToken);
+		} else {
+			localStorage.removeItem(REFRESH_TOKEN_KEY);
+		}
 
-	if (state.user) {
-		localStorage.setItem(USER_KEY, JSON.stringify(state.user));
-	} else {
-		localStorage.removeItem(USER_KEY);
-	}
+		if (state.user) {
+			localStorage.setItem(USER_KEY, JSON.stringify(state.user));
+		} else {
+			localStorage.removeItem(USER_KEY);
+		}
 
-	if (state.oauthAccessTokenExpiresAt) {
-		localStorage.setItem(OAUTH_EXPIRES_AT_KEY, String(state.oauthAccessTokenExpiresAt));
-	} else {
-		localStorage.removeItem(OAUTH_EXPIRES_AT_KEY);
+		if (state.oauthAccessTokenExpiresAt) {
+			localStorage.setItem(OAUTH_EXPIRES_AT_KEY, String(state.oauthAccessTokenExpiresAt));
+		} else {
+			localStorage.removeItem(OAUTH_EXPIRES_AT_KEY);
+		}
+	} catch {
+		setError('Unable to persist the browser session.');
 	}
 }
 
 function applySession(session: AuthSessionResponse): void {
+	sessionRevision += 1;
 	const oauthAccessTokenExpiresAt = toExpiresAt(session.oauthAccessTokenExpiresIn);
 	const normalizedUser = normalizeUser(session.user);
 	const nextState: AuthState = {
@@ -149,6 +150,8 @@ function applySession(session: AuthSessionResponse): void {
 }
 
 export function clearSession(): void {
+	sessionRevision += 1;
+	inFlightRefresh = null;
 	clearRefreshTimer();
 	const nextState: AuthState = {
 		status: 'unauthenticated',
@@ -166,48 +169,49 @@ export function initializeAuthState(): void {
 	if (!browser) {
 		return;
 	}
-
-	const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-	const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-	const storedUser = localStorage.getItem(USER_KEY);
-	const storedExpiresAt = localStorage.getItem(OAUTH_EXPIRES_AT_KEY);
-
-	let user: AuthUser | null = null;
-	if (storedUser) {
-		try {
-			user = normalizeUser(JSON.parse(storedUser) as AuthUser);
-		} catch {
-			user = null;
+	try {
+		const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+		const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+		const storedUser = localStorage.getItem(USER_KEY);
+		const storedExpiresAt = localStorage.getItem(OAUTH_EXPIRES_AT_KEY);
+		let user: AuthUser | null = null;
+		if (storedUser) {
+			try {
+				const parsed: unknown = JSON.parse(storedUser);
+				user = isAuthUser(parsed) ? normalizeUser(parsed) : null;
+			} catch {
+				user = null;
+			}
 		}
+		const oauthAccessTokenExpiresAt = storedExpiresAt ? Number(storedExpiresAt) : null;
+		if (storedToken && user) {
+			authStore.set({
+				status: 'authenticated',
+				gatewayAccessToken: storedToken,
+				refreshToken: storedRefreshToken,
+				oauthAccessTokenExpiresAt:
+					oauthAccessTokenExpiresAt && Number.isFinite(oauthAccessTokenExpiresAt)
+						? oauthAccessTokenExpiresAt
+						: null,
+				user,
+				errorMessage: ''
+			});
+			scheduleRefresh();
+			return;
+		}
+		clearSession();
+	} catch {
+		clearSession();
+		setError('Unable to restore the browser session.');
 	}
-
-	const oauthAccessTokenExpiresAt = storedExpiresAt ? Number(storedExpiresAt) : null;
-
-	if (storedToken && user) {
-		authStore.set({
-			status: 'authenticated',
-			gatewayAccessToken: storedToken,
-			refreshToken: storedRefreshToken,
-			oauthAccessTokenExpiresAt:
-				oauthAccessTokenExpiresAt && Number.isFinite(oauthAccessTokenExpiresAt)
-					? oauthAccessTokenExpiresAt
-					: null,
-			user,
-			errorMessage: ''
-		});
-		scheduleRefresh();
-		return;
-	}
-
-	clearSession();
 }
 
 export async function startOAuthLogin(): Promise<void> {
+	if (!browser) return;
 	try {
-		const result = await plainApiRequest<{ authorizeUrl: string; state: string }>(
-			'/auth/oauth2/authorize'
-		);
+		const result = await plainApiRequest('/auth/oauth2/authorize', parseAuthorization);
 		if (browser) {
+			sessionStorage.setItem(OAUTH_STATE_KEY, result.state);
 			window.location.assign(result.authorizeUrl);
 		}
 	} catch (error) {
@@ -224,6 +228,15 @@ export async function handleOAuthCallbackIfPresent(): Promise<boolean> {
 	const code = currentUrl.searchParams.get('code');
 	const state = currentUrl.searchParams.get('state');
 	const oauthError = currentUrl.searchParams.get('error');
+	if (code || oauthError) {
+		for (const key of ['code', 'state', 'error', 'error_description'])
+			currentUrl.searchParams.delete(key);
+		window.history.replaceState(
+			{},
+			'',
+			`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+		);
+	}
 
 	if (oauthError) {
 		setError(`OAuth2 error: ${oauthError}`);
@@ -239,15 +252,20 @@ export async function handleOAuthCallbackIfPresent(): Promise<boolean> {
 		return true;
 	}
 
+	const callbackRevision = sessionRevision;
 	try {
+		const expectedState = sessionStorage.getItem(OAUTH_STATE_KEY);
+		if (!expectedState || expectedState !== state)
+			throw new Error('OAuth2 state does not match this browser session.');
+		sessionStorage.removeItem(OAUTH_STATE_KEY);
+		const revision = sessionRevision;
 		const callbackPath = `/auth/oauth2/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-		const session = await plainApiRequest<AuthSessionResponse>(callbackPath);
+		const session = await plainApiRequest(callbackPath, parseSession);
+		if (revision !== sessionRevision) return true;
 		applySession(session);
-
-		const cleaned = `${currentUrl.pathname}${currentUrl.hash}`;
-		window.history.replaceState({}, '', cleaned);
 		return true;
 	} catch (error) {
+		if (callbackRevision !== sessionRevision) return true;
 		setError(error instanceof Error ? error.message : 'OAuth2 callback failed.');
 		return true;
 	}
@@ -283,6 +301,7 @@ export async function refreshSession(): Promise<boolean> {
 		return inFlightRefresh;
 	}
 
+	const revision = sessionRevision;
 	const refreshPromise = (async () => {
 		const snapshot = get(authStore);
 		if (!snapshot.refreshToken) {
@@ -293,16 +312,18 @@ export async function refreshSession(): Promise<boolean> {
 		authStore.update((state) => ({ ...state, status: 'refreshing', errorMessage: '' }));
 
 		try {
-			const refreshed = await plainApiRequest<AuthSessionResponse>('/auth/oauth2/refresh', {
+			const refreshed = await plainApiRequest('/auth/oauth2/refresh', parseSession, {
 				method: 'POST',
 				headers: {
 					'content-type': 'application/json'
 				},
 				body: JSON.stringify({ refreshToken: snapshot.refreshToken })
 			});
+			if (revision !== sessionRevision) return false;
 			applySession(refreshed);
 			return true;
 		} catch (error) {
+			if (revision !== sessionRevision) return false;
 			clearSession();
 			setError(error instanceof Error ? error.message : 'OAuth2 refresh failed.');
 			return false;
@@ -313,7 +334,7 @@ export async function refreshSession(): Promise<boolean> {
 	try {
 		return await refreshPromise;
 	} finally {
-		inFlightRefresh = null;
+		if (inFlightRefresh === refreshPromise) inFlightRefresh = null;
 	}
 }
 
@@ -342,7 +363,11 @@ export function clearAuthError(): void {
 	}));
 }
 
-export async function authRequest<T>(path: string, init?: RequestInit): Promise<T> {
+export async function authRequest<T>(
+	path: string,
+	decoder: Decoder<T>,
+	init?: RequestInit
+): Promise<T> {
 	const isReady = await ensureFreshSession();
 	if (!isReady) {
 		throw new Error('Authentication is required.');
@@ -369,29 +394,14 @@ export async function authRequest<T>(path: string, init?: RequestInit): Promise<
 		}
 	}
 
-	if (!response.ok) {
-		const payload = (await response.json().catch(() => ({}))) as {
-			message?: string;
-			detail?: string;
-		};
-		throw new Error(payload.message || payload.detail || `Request failed: ${response.status}`);
-	}
-
-	return (await response.json()) as T;
+	return readJsonResponse(response, decoder);
 }
 
-async function plainApiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(`${API_BASE}${path}`, {
-		...init
-	});
-
-	if (!response.ok) {
-		const payload = (await response.json().catch(() => ({}))) as {
-			message?: string;
-			detail?: string;
-		};
-		throw new Error(payload.message || payload.detail || `Request failed: ${response.status}`);
-	}
-
-	return (await response.json()) as T;
+async function plainApiRequest<T>(
+	path: string,
+	decoder: Decoder<T>,
+	init?: RequestInit
+): Promise<T> {
+	const response = await fetch(`${API_BASE}${path}`, { ...init });
+	return readJsonResponse(response, decoder);
 }

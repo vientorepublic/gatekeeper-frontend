@@ -13,7 +13,7 @@
 		onRefresh,
 		onIssue,
 		onNewLabelChange
-	} = $props<{
+	}: {
 		namespaces: string[];
 		selectedNamespace: string;
 		newLabel: string;
@@ -25,7 +25,7 @@
 		onRefresh: () => void | Promise<void>;
 		onIssue: () => void | Promise<void>;
 		onNewLabelChange: (label: string) => void;
-	}>();
+	} = $props();
 </script>
 
 <div class="flex flex-wrap items-end gap-3">
@@ -35,7 +35,7 @@
 			id="namespace"
 			class="rounded-xl border-slate-300 text-sm"
 			value={selectedNamespace}
-			disabled={loadingNamespaces}
+			disabled={loadingNamespaces || issuingKey}
 			onchange={(event) => {
 				const namespace = event.currentTarget.value;
 				onNamespaceChange(namespace);
@@ -69,7 +69,10 @@
 </div>
 
 <div class="mt-5 grid gap-3 md:grid-cols-[1fr_auto]">
+	<label for="api-key-label" class="sr-only">새 API 키 라벨</label>
 	<input
+		id="api-key-label"
+		maxlength="128"
 		class="rounded-xl border-slate-300 text-sm"
 		type="text"
 		placeholder="새 API 키 라벨 (선택)"

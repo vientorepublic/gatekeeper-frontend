@@ -3,14 +3,22 @@
 	import { cubicOut } from 'svelte/easing';
 	import { fade, fly } from 'svelte/transition';
 	import { resolve } from '$app/paths';
-	import type { AuthUser } from '$lib/auth/auth-client';
+	import type { AuthUser } from '#lib/auth/auth-client.js';
 
-	let { user, onSignOut } = $props<{
+	let {
+		user,
+		onSignOut
+	}: {
 		user: AuthUser | null;
 		onSignOut: () => void;
-	}>();
+	} = $props();
 
 	let profileOpen = $state(false);
+	let profileTrigger = $state<HTMLButtonElement | null>(null);
+	let signOutButton = $state<HTMLButtonElement | null>(null);
+	$effect(() => {
+		if (profileOpen) signOutButton?.focus();
+	});
 	let menuElement: HTMLDivElement | null = null;
 	let avatarLoadFailed = $state(false);
 	const isUserLoading = $derived(user === null);
@@ -63,8 +71,9 @@
 		}
 
 		function handleEscape(event: KeyboardEvent): void {
-			if (event.key === 'Escape') {
+			if (event.key === 'Escape' && profileOpen) {
 				closeProfile();
+				profileTrigger?.focus();
 			}
 		}
 
@@ -92,6 +101,13 @@
 				type="button"
 				class="flex cursor-pointer items-center gap-3 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-left transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-80"
 				onclick={toggleProfile}
+				bind:this={profileTrigger}
+				onkeydown={(event) => {
+					if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+						event.preventDefault();
+						profileOpen = true;
+					}
+				}}
 				aria-expanded={profileOpen}
 				aria-haspopup="menu"
 				aria-controls="profile-menu"
@@ -166,6 +182,17 @@
 					<button
 						type="button"
 						role="menuitem"
+						bind:this={signOutButton}
+						onkeydown={(event) => {
+							if (event.key === 'Tab') {
+								closeProfile();
+								profileTrigger?.focus();
+							}
+							if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+								event.preventDefault();
+								signOutButton?.focus();
+							}
+						}}
 						class="mt-3 w-full cursor-pointer rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
 						onclick={() => {
 							closeProfile();
