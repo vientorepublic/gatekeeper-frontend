@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { env } from '$env/dynamic/public';
+	import { PUBLIC_GATEKEEPER_API_BASE_URL } from '$app/env/public';
 
 	let {
 		selectedNamespace,
@@ -9,7 +9,7 @@
 		loading,
 		isAuthenticated,
 		onVersionChange
-	} = $props<{
+	}: {
 		selectedNamespace: string;
 		selectedVersion: string;
 		supportsAnyVersion: boolean;
@@ -17,14 +17,14 @@
 		loading: boolean;
 		isAuthenticated: boolean;
 		onVersionChange: (version: string) => void;
-	}>();
+	} = $props();
 
 	const sanitizedVersion = $derived(selectedVersion.trim());
 	const hasNamespace = $derived(selectedNamespace.trim().length > 0);
 	const hasFixedVersions = $derived(availableVersions.length > 0);
 	const pathVersionToken = $derived(sanitizedVersion || '{version}');
 	const apiBaseUrl = $derived(
-		(env.PUBLIC_GATEKEEPER_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
+		(PUBLIC_GATEKEEPER_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
 	);
 	const endpointBase = $derived(
 		hasNamespace ? `/api/${selectedNamespace}/${pathVersionToken}` : '/api/{namespace}/{version}'

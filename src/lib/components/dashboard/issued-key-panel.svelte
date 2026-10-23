@@ -1,12 +1,17 @@
 <script lang="ts">
 	import { fade, fly, scale } from 'svelte/transition';
 
-	let { issuedPlainKey, copyingIssuedKey, keyCopied, onCopy } = $props<{
+	let {
+		issuedPlainKey,
+		copyingIssuedKey,
+		keyCopied,
+		onCopy
+	}: {
 		issuedPlainKey: string;
 		copyingIssuedKey: boolean;
 		keyCopied: boolean;
 		onCopy: () => void | Promise<void>;
-	}>();
+	} = $props();
 </script>
 
 <div class="mt-4 rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-800">

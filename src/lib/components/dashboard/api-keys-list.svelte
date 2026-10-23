@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, fly, scale } from 'svelte/transition';
-	import type { ApiKeyItem } from '$lib/api/auth-api';
-	import { formatDateTime } from '$lib/utils/date';
+	import type { ApiKeyItem } from '#lib/api/auth-api.js';
+	import { formatDateTime } from '#lib/utils/date.js';
 
 	let {
 		apiKeys,
@@ -16,7 +16,7 @@
 		hasNextPage,
 		hasPreviousPage,
 		onPageChange
-	} = $props<{
+	}: {
 		apiKeys: ApiKeyItem[];
 		loadingKeys: boolean;
 		isAuthenticated: boolean;
@@ -29,7 +29,7 @@
 		hasNextPage: boolean;
 		hasPreviousPage: boolean;
 		onPageChange: (page: number) => void;
-	}>();
+	} = $props();
 
 	const visibleStart = $derived(apiKeys.length === 0 ? 0 : (currentPage - 1) * pageSize + 1);
 	const visibleEnd = $derived(Math.min(currentPage * pageSize, totalApiKeys));

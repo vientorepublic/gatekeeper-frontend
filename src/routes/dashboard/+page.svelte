@@ -6,7 +6,7 @@
 		clearSession,
 		getAuthSnapshot,
 		initializeAuthState
-	} from '$lib/auth/auth-client';
+	} from '#lib/auth/auth-client.js';
 	import {
 		createApiKey,
 		type ApiKeyItem,
@@ -15,14 +15,14 @@
 		fetchNamespaces,
 		fetchRouteGuide,
 		revokeApiKeyById
-	} from '$lib/api/auth-api';
-	import ConfirmModal from '$lib/components/common/confirm-modal.svelte';
-	import ApiKeysList from '$lib/components/dashboard/api-keys-list.svelte';
-	import IssuedKeyPanel from '$lib/components/dashboard/issued-key-panel.svelte';
-	import NamespaceActionsPanel from '$lib/components/dashboard/namespace-actions-panel.svelte';
-	import RestApiGuidePanel from '$lib/components/dashboard/rest-api-guide-panel.svelte';
-	import TopNavigation from '$lib/components/top-navigation.svelte';
-	import { onMount } from 'svelte';
+	} from '#lib/api/auth-api.js';
+	import ConfirmModal from '#lib/components/common/confirm-modal.svelte';
+	import ApiKeysList from '#lib/components/dashboard/api-keys-list.svelte';
+	import IssuedKeyPanel from '#lib/components/dashboard/issued-key-panel.svelte';
+	import NamespaceActionsPanel from '#lib/components/dashboard/namespace-actions-panel.svelte';
+	import RestApiGuidePanel from '#lib/components/dashboard/rest-api-guide-panel.svelte';
+	import TopNavigation from '#lib/components/top-navigation.svelte';
+	import { onMount, onDestroy } from 'svelte';
 
 	let loadingNamespaces = $state(false);
 	let loadingRouteGuide = $state(false);
@@ -51,6 +51,12 @@
 	let newLabel = $state('');
 	let issuedPlainKey = $state('');
 	let keyCopied = $state(false);
+	let keyRequestId = 0;
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+		keyRequestId += 1;
+	});
 
 	const API_KEYS_PAGE_SIZE = 10;
 
@@ -85,12 +91,15 @@
 			if (selectedNamespace) {
 				await loadApiKeys(selectedNamespace);
 			}
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to initialize dashboard.';
 		} finally {
 			bootstrappingDashboard = false;
 		}
 	});
 
 	async function handleSignOut(): Promise<void> {
+		keyRequestId += 1;
 		clearSession();
 		apiKeys = [];
 		currentPage = 1;
@@ -107,10 +116,12 @@
 	async function loadNamespaces(): Promise<void> {
 		loadingNamespaces = true;
 		try {
-			namespaces = await fetchNamespaces();
+			const result = await fetchNamespaces();
+			if (disposed || !getAuthSnapshot().user) return;
+			namespaces = result;
 
 			if (!selectedNamespace && namespaces.length > 0) {
-				selectedNamespace = namespaces[0] as string;
+				selectedNamespace = namespaces[0] ?? '';
 			}
 
 			syncRouteVersionForNamespace(selectedNamespace);
@@ -126,6 +137,7 @@
 
 		try {
 			const response = await fetchRouteGuide();
+			if (disposed || !getAuthSnapshot().user) return;
 			routeGuides = response.namespaces;
 			syncRouteVersionForNamespace(selectedNamespace);
 		} catch (error) {
@@ -157,11 +169,19 @@
 			return;
 		}
 
+		const requestId = ++keyRequestId;
 		loadingKeys = true;
 		errorMessage = '';
 
 		try {
 			const response = await fetchApiKeys(namespace, targetPage, API_KEYS_PAGE_SIZE);
+			if (
+				disposed ||
+				requestId !== keyRequestId ||
+				namespace !== selectedNamespace ||
+				!getAuthSnapshot().user
+			)
+				return;
 			apiKeys = response.items;
 			currentPage = response.page;
 			pageSize = response.pageSize;
@@ -170,9 +190,10 @@
 			hasNextPage = response.hasNext;
 			hasPreviousPage = response.hasPrevious;
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to load API keys.';
+			if (requestId === keyRequestId && !disposed)
+				errorMessage = error instanceof Error ? error.message : 'Failed to load API keys.';
 		} finally {
-			loadingKeys = false;
+			if (requestId === keyRequestId) loadingKeys = false;
 		}
 	}
 
@@ -181,14 +202,17 @@
 			return;
 		}
 
-		confirmIssueOpen = false;
+		const namespace = selectedNamespace;
+		const userId = getAuthSnapshot().user?.id;
 		issuingKey = true;
 		keyCopied = false;
 		errorMessage = '';
 		noticeMessage = '';
 
 		try {
-			const created = await createApiKey(selectedNamespace, newLabel);
+			const created = await createApiKey(namespace, newLabel);
+			if (disposed || selectedNamespace !== namespace || getAuthSnapshot().user?.id !== userId)
+				return;
 
 			issuedPlainKey = created.apiKey;
 			newLabel = '';
@@ -199,6 +223,7 @@
 			errorMessage = error instanceof Error ? error.message : 'Failed to issue API key.';
 		} finally {
 			issuingKey = false;
+			confirmIssueOpen = false;
 		}
 	}
 
@@ -207,13 +232,15 @@
 			return;
 		}
 
+		const namespace = selectedNamespace;
+		const userId = getAuthSnapshot().user?.id;
 		revokingKeyId = id;
-		pendingRevokeKeyId = null;
-		confirmRevokeOpen = false;
 		errorMessage = '';
 
 		try {
-			await revokeApiKeyById(selectedNamespace, id);
+			await revokeApiKeyById(namespace, id);
+			if (disposed || selectedNamespace !== namespace || getAuthSnapshot().user?.id !== userId)
+				return;
 
 			noticeMessage = 'API 키가 폐기되었습니다.';
 			await loadApiKeys(selectedNamespace, currentPage);
@@ -221,6 +248,8 @@
 			errorMessage = error instanceof Error ? error.message : 'Failed to revoke API key.';
 		} finally {
 			revokingKeyId = null;
+			confirmRevokeOpen = false;
+			pendingRevokeKeyId = null;
 		}
 	}
 
@@ -244,11 +273,23 @@
 	}
 
 	function handleNamespaceChange(namespace: string): void {
+		if (issuingKey) return;
+		keyRequestId += 1;
+		apiKeys = [];
+		issuedPlainKey = '';
+		keyCopied = false;
+		errorMessage = '';
+		noticeMessage = '';
+		confirmIssueOpen = false;
+		confirmRevokeOpen = false;
+		pendingRevokeKeyId = null;
 		selectedNamespace = namespace;
 		syncRouteVersionForNamespace(namespace);
 		currentPage = 1;
 		if (selectedNamespace) {
 			void loadApiKeys(selectedNamespace, 1);
+		} else {
+			loadingKeys = false;
 		}
 	}
 
@@ -348,12 +389,18 @@
 
 	<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8" aria-busy={isBusy}>
 		{#if errorMessage}
-			<div class="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700">
+			<div
+				role="alert"
+				class="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700"
+			>
 				{errorMessage}
 			</div>
 		{/if}
 		{#if noticeMessage}
 			<div
+				role="status"
+				tabindex="-1"
+				data-dialog-return-focus
 				class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-700"
 			>
 				<p>{noticeMessage}</p>

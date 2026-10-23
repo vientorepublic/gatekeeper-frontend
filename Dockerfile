@@ -8,6 +8,9 @@ FROM node:24-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY scripts/prepare.mjs ./scripts/prepare.mjs
+COPY vite.config.ts svelte-options.js tsconfig.json ./
+COPY src/app.html src/env.ts ./src/
 RUN npm ci
 
 FROM node:24-alpine AS builder
@@ -30,6 +33,7 @@ ENV PORT=5173
 RUN addgroup -g 1001 -S nodejs && adduser -S svelte -u 1001 -G nodejs
 
 COPY package.json package-lock.json ./
+COPY scripts/prepare.mjs ./scripts/prepare.mjs
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/build ./build

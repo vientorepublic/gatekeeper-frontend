@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 
-	import BaseModal from '$lib/components/common/base-modal.svelte';
+	import BaseModal from '#lib/components/common/base-modal.svelte';
+	const modalId = $props.id();
 
 	let {
 		open,
@@ -12,7 +13,7 @@
 		confirming = false,
 		onConfirm,
 		onCancel
-	} = $props<{
+	}: {
 		open: boolean;
 		title: string;
 		message: string;
@@ -21,18 +22,18 @@
 		confirming?: boolean;
 		onConfirm: () => void | Promise<void>;
 		onCancel: () => void;
-	}>();
+	} = $props();
 </script>
 
 <BaseModal
 	{open}
 	onClose={onCancel}
 	closeDisabled={confirming}
-	ariaLabelledBy="confirm-modal-title"
-	ariaDescribedBy="confirm-modal-description"
+	ariaLabelledBy={`${modalId}-title`}
+	ariaDescribedBy={`${modalId}-description`}
 >
-	<h2 id="confirm-modal-title" class="text-lg font-semibold text-slate-900">{title}</h2>
-	<p id="confirm-modal-description" class="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+	<h2 id={`${modalId}-title`} class="text-lg font-semibold text-slate-900">{title}</h2>
+	<p id={`${modalId}-description`} class="mt-2 text-sm leading-6 text-slate-600">{message}</p>
 
 	<div class="mt-6 flex justify-end gap-3">
 		<button
