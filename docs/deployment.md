@@ -4,7 +4,7 @@
 
 ## Cloudflare Pages
 
-- 빌드 환경: Node.js 24.x
+- 빌드 환경: Node.js 24.22.1 이상인 24.x
 - Build command: `npm run build`
 - Build output directory: `.svelte-kit/cloudflare`
 - Root directory: 프론트엔드 저장소에 직접 연결하면 저장소 루트. 메타 저장소에 연결하면 `gatekeeper-frontend`이며 빌드 환경이 실제 서브모듈 소스를 checkout하는지도 확인합니다.
@@ -26,9 +26,17 @@ HOST=0.0.0.0 PORT=5173 node build/index.js
 
 외부 환경에 `ADAPTER=cloudflare`가 남아 있으면 해제합니다. Node 출력은 `build/`이며 Pages 출력과 다릅니다.
 
-Dockerfile은 Node.js 24와 Node 어댑터를 사용합니다. 런타임은 `HOST=0.0.0.0`, `PORT=5173`이며 비루트 사용자로 실행됩니다. 메타 저장소 Compose는 프론트엔드를 호스트 `127.0.0.1:10002`로 공개합니다. 이 경우 콜백은 실제 접속하는 프론트엔드 주소를 사용합니다.
+Dockerfile은 Node.js 24.22.1과 Node 어댑터를 사용합니다. 런타임은 `HOST=0.0.0.0`, `PORT=5173`이며 비루트 사용자로 실행됩니다. 메타 저장소 Compose는 프론트엔드를 호스트 `127.0.0.1:10002`로 공개합니다. 이 경우 콜백은 실제 접속하는 프론트엔드 주소를 사용합니다.
 
 `prepare`는 SvelteKit이 설치된 개발 환경에서 타입 동기화를 수행하고 실패를 전파합니다. Docker runner처럼 SvelteKit을 제외한 production 설치에서는 생략합니다. 오류를 숨기려고 lifecycle script를 비활성화하지 않습니다.
+
+## Node2Shell 보안 기준
+
+직접 실행하는 Node 어댑터와 Docker 런타임도 Node.js 24.22.1 이상인 24.x를 사용합니다. CVE-2026-111497은 Node 내장 Brotli 디코더의 취약점이므로 SvelteKit 패키지 갱신만으로 해결되지 않습니다. Dockerfile 수정 후에는 이미지를 다시 빌드하고 컨테이너를 교체해야 합니다. 메타 저장소 Compose에서는 `docker exec gatekeeper-frontend node --version`으로 실제 버전을 확인합니다.
+
+현재 인증·API 요청은 브라우저에서 실행됩니다. Cloudflare Pages의 요청 처리는 workerd이며 빌드 시 사용하는 Node와 별개입니다. 이후 Node SSR에서 외부 `fetch()`를 추가하면 Brotli 응답의 압축 해제 경로도 점검합니다. Production과 Preview 빌드의 `NODE_VERSION`은 `.node-version`과 일치시키고 실제 빌드 로그로 확인합니다. Pages 설정을 변경할 때 마스킹된 기존 secret 값을 그대로 다시 저장하지 않습니다.
+
+[Node.js 보안 공지](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)를 기준으로 런타임을 관리합니다.
 
 ## 배포 확인
 
