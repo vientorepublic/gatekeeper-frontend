@@ -4,7 +4,7 @@ FlowAuth 로그인과 namespace별 API 키 조회·발급·폐기를 제공하�
 
 ## 시작하기
 
-Node.js 24.x와 npm, 설정된 Gatekeeper 백엔드가 필요합니다. 아래 명령은 이 저장소 디렉터리에서 실행합니다.
+Node.js 24.22.1 이상인 24.x와 npm, 설정된 Gatekeeper 백엔드가 필요합니다. 아래 명령은 이 저장소 디렉터리에서 실행합니다.
 
 ```bash
 npm ci
