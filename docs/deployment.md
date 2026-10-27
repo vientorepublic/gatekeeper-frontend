@@ -53,3 +53,11 @@ Dockerfile은 Node.js 24.22.1과 Node 어댑터를 사용합니다. 런타임은
 - 콜백 오류: 백엔드와 FlowAuth 등록 URI를 확인합니다. 현재 앱은 `/`에서 콜백을 처리합니다.
 - 잘못된 출력: 선택된 어댑터와 실행 명령, Pages 출력 경로를 확인합니다.
 - 검사 도구 버전 충돌: 현재 TypeScript 6.x와 SvelteKit·ESLint·테스트 도구의 peer 범위를 확인합니다. 강제 설치 대신 호환 범위를 조정합니다.
+
+## GitHub Actions 프로덕션 배포
+
+`.github/workflows/deploy-pages.yml`은 `main` 푸시와 `main` 수동 실행에만 반응합니다. Node 24.22.1과 npm 11.13.0에서 `npm ci`, lint, 타입 검사, 단위 테스트와 Cloudflare 빌드를 수행한 뒤 기존 `gatekeeper-frontend` 프로젝트로 업로드합니다. 배포 명령은 `--branch main`과 실행 커밋 SHA를 명시합니다.
+
+GitHub `production` 환경은 `main`만 허용하고, Pages 편집 토큰은 해당 환경의 `CLOUDFLARE_API_TOKEN` Secret에 저장합니다. `CLOUDFLARE_ACCOUNT_ID`와 운영 중인 `PUBLIC_GATEKEEPER_API_BASE_URL`은 저장소 Variables로 설정합니다. 기존 Pages 암호화 변수는 유지하며 마스킹된 빈 값으로 다시 저장하지 않습니다.
+
+Cloudflare Git 연결을 해제하여 비-main 이벤트가 skipped 기록도 만들지 않도록 합니다. 프로젝트·도메인은 유지합니다. 전환 완료 여부는 실제 Actions 운영 배포와 임시 비-main 푸시 전후의 Pages 기록으로 검증합니다.
