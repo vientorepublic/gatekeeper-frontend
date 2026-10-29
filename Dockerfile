@@ -1,10 +1,10 @@
-FROM node:24.22.1-alpine AS hardened-malloc
+FROM node:26.13.0-alpine AS hardened-malloc
 RUN apk add --no-cache git build-base linux-headers
 RUN git clone --depth 1 https://github.com/GrapheneOS/hardened_malloc.git /hardened_malloc
 WORKDIR /hardened_malloc
 RUN make CONFIG_NATIVE=false CONFIG_CXX_ALLOCATOR=false
 
-FROM node:24.22.1-alpine AS deps
+FROM node:26.13.0-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -13,14 +13,14 @@ COPY vite.config.ts svelte-options.js tsconfig.json ./
 COPY src/app.html src/env.ts ./src/
 RUN npm ci
 
-FROM node:24.22.1-alpine AS builder
+FROM node:26.13.0-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build:node
 
-FROM node:24.22.1-alpine AS runner
+FROM node:26.13.0-alpine AS runner
 WORKDIR /app
 
 COPY --from=hardened-malloc /hardened_malloc/out/libhardened_malloc.so /usr/local/lib/libhardened_malloc.so
